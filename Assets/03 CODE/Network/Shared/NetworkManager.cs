@@ -6,16 +6,48 @@ using System.Net;
 using System.Net.Sockets;
 using Unity.VisualScripting;
 using UnityEngine;
+using System.Data;
+using Unity.Burst.Intrinsics;
 
 public class NetworkManager : MonoBehaviour
 {
-	protected const int PORT = 50000;
-	protected const string HOSTNAME = "127.0.0.1";
+	private static NetworkManager _instance;
+	protected NetworkPacketManager _packetManager;
+
+	protected int _port = 50000;
+	protected string _hostname = "127.0.0.1";
 
 	protected UdpClient _receiver, _sender;
 
+	public static T GetInstance<T>()
+	{
+		return (T)(object)_instance;
+	}
+
+	private void Awake()
+	{
+		if (_instance != null && _instance != this)
+		{
+			Destroy(gameObject);
+		}
+		else
+		{
+			_instance = this;
+		}
+
+		DontDestroyOnLoad(gameObject);
+
+		_packetManager = new NetworkPacketManager();
+	}
+
+	private void Update()
+	{
+		_packetManager.Update(Time.deltaTime);
+	}
+
 	protected async void ListenForDataAsync()
 	{
+		Debug.Log("Listening for data...");
 		var packet = await _receiver.ReceiveAsync();
 		ListenForDataAsync();
 
@@ -30,12 +62,17 @@ public class NetworkManager : MonoBehaviour
 
 		switch (baseDatagram.GetDatagramType())
 		{
-			case DatagramType.ConnectionRequestResponse:
-				ClientData(baseDatagram, rawData);
+			case DatagramType.Acknowledge:
+				_packetManager.ReceivedPacket(
+					new Datagrams.AcknowledgeDatagram(rawData).RequestPacketGUID);
 				break;
 
 			case DatagramType.ConnectionRequestConfirmation:
 				ServerData(baseDatagram, rawData);
+				break;
+
+			case DatagramType.ConnectionRequestResponse:
+				ClientData(baseDatagram, rawData);
 				break;
 		}
 	}
@@ -45,44 +82,54 @@ public class NetworkManager : MonoBehaviour
 		DatagramType datagramType,
 		IDatagram data,
 		byte clientID,
-		IPEndPoint remoteEndPoint)
+		IPEndPoint remoteEndPoint,
+		bool needsConfimation = false)
 	{
-		var datagram = new Datagram(datagramType, data, clientID);
-		var rawDatagram = datagram.ToArray();
-
-		if (remoteEndPoint == null)
-		{
-			if (!udpClient.Client.Connected)
+		_packetManager.SendPacket(
+			new NetworkPacketManager.Packet
 			{
-				throw new Exception("SOCKET IS NOT CONNECTED TO ANYWHERE!");
-			}
-
-			await udpClient.SendAsync(rawDatagram, rawDatagram.Length);
-		}
-		else
-		{
-			await udpClient.SendAsync(rawDatagram, rawDatagram.Length, remoteEndPoint);
-		}
+				Socket = udpClient,
+				Destination = remoteEndPoint,
+				Data = new Datagram(datagramType, data, clientID),
+			},
+			needsConfimation
+			);
 	}
 
-	protected void SendDataAsync(DatagramType datagramType, IDatagram data, byte clientId, IPEndPoint remoteEndPoint)
+	protected void SendDataAsync(
+		DatagramType datagramType, 
+		IDatagram data, 
+		byte clientId, 
+		IPEndPoint remoteEndPoint,
+		bool needsConfimation = false)
 	{
-		SendDataAsync(_sender, datagramType, data, clientId, remoteEndPoint);
+		SendDataAsync(_sender, datagramType, data, clientId, remoteEndPoint, needsConfimation);
 	}
 
-	protected void SendDataAsync(DatagramType datagramType, IDatagram data, IPEndPoint remoteEndPoint)
+	protected void SendDataAsync(
+		DatagramType datagramType, 
+		IDatagram data, 
+		IPEndPoint remoteEndPoint,
+		bool needsConfimation = false)
 	{
-		SendDataAsync(_sender, datagramType, data, 0, remoteEndPoint);
+		SendDataAsync(_sender, datagramType, data, 0, remoteEndPoint, needsConfimation);
 	}
 
-	protected void SendDataAsync(DatagramType datagramType, IDatagram data, byte clientId)
+	protected void SendDataAsync(
+		DatagramType datagramType, 
+		IDatagram data, 
+		byte clientId,
+		bool needsConfimation = false)
 	{
-		SendDataAsync(_sender, datagramType, data, clientId, null);
+		SendDataAsync(_sender, datagramType, data, clientId, null, needsConfimation);
 	}
 
-	protected void SendDataAsync(DatagramType datagramType, IDatagram data)
+	protected void SendDataAsync(
+		DatagramType datagramType, 
+		IDatagram data,
+		bool needsConfimation = false)
 	{
-		SendDataAsync(_sender,datagramType, data,0,null);
+		SendDataAsync(_sender,datagramType, data,0,null,needsConfimation);
 	}
 
 	protected virtual void HandleError(DatagramType datagramType, Datagrams.ErrorDatagram errorDatagram){}

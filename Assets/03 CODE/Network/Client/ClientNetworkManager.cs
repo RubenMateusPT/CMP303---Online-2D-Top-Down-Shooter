@@ -11,12 +11,10 @@ public class ClientNetworkManager : NetworkManager
 {
 	private byte id = 0;
 
-	private void Awake()
+	private void Start()
 	{
 		_receiver = new UdpClient();
 		_sender = new UdpClient();
-
-		ConnectToServer();
 		ListenForDataAsync();
 	}
 
@@ -35,26 +33,17 @@ public class ClientNetworkManager : NetworkManager
 		switch (baseDatagram.GetDatagramType())
 		{
 			case DatagramType.ConnectionRequestResponse:
-				ProcessConnectionRequestResponse(baseDatagram, new Datagrams.ConnectionRequestResponseDatagram(rawData));
+				ProcessConnectionRequestResponse(
+					baseDatagram, 
+					new Datagrams.ConnectionRequestResponseDatagram(rawData));
 				break;
 		}
 	}
 
-	private void ProcessConnectionRequestResponse(Datagram baseDatagram, Datagrams.ConnectionRequestResponseDatagram data)
+	private void ConnectToServer()
 	{
-		id = baseDatagram.GetClientID;
-		Debug.Log($"Received ID: {id}");
-		
-		_sender.Connect(HOSTNAME, data.ReceiverPort);
-		_receiver.Connect(HOSTNAME, data.SenderPort);
-
-		SendDataAsync(DatagramType.ConnectionRequestConfirmation, new Datagrams.EmptyDatagram());
-	}
-
-	public void ConnectToServer()
-	{
-		_receiver.Connect(HOSTNAME, PORT);
-		_sender.Connect(HOSTNAME, PORT);
+		_receiver.Connect(_hostname, _port);
+		_sender.Connect(_hostname, _port);
 
 		Random ran = new Random();
 
@@ -62,9 +51,41 @@ public class ClientNetworkManager : NetworkManager
 			DatagramType.ConnectionRequest,
 			new Datagrams.ConnectionRequestDatagram
 			{
-				PlayerName = $"Player {ran.Next(100)}",
+				PlayerName = PlayerSettings.Instance.Username,
+				PlayerColor = PlayerSettings.Instance.PlayerColor,
 				Receiver = (IPEndPoint)_receiver.Client.LocalEndPoint
-			}
+			},
+			true
 		);
 	}
+
+	private void ProcessConnectionRequestResponse(Datagram baseDatagram, Datagrams.ConnectionRequestResponseDatagram data)
+	{
+		_packetManager.ReceivedPacket(data.RequestPacketGUID);
+
+		id = baseDatagram.GetClientID;
+		Debug.Log($"Received ID: {id}");
+		
+		_sender.Connect(_hostname, data.ReceiverPort);
+		_receiver.Connect(_hostname, data.ReceiverPort);
+
+		SendDataAsync(
+			DatagramType.Acknowledge, 
+			new Datagrams.AcknowledgeDatagram
+			{
+				RequestPacketGUID = baseDatagram.GetPacketID
+			},
+			true);
+	}
+
+
+
+	public void ConnectToServer(string hostname, int port)
+	{
+		_hostname = hostname;
+		_port = port;
+		
+		ConnectToServer();
+	}
+
 }

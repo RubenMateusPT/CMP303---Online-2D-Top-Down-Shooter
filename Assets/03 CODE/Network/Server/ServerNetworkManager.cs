@@ -12,19 +12,26 @@ using Random = UnityEngine.Random;
 
 public class ServerNetworkManager : NetworkManager
 {
-	private const int MAX_PLAYERS = 0;
+	private const int MAX_PLAYERS = 4;
 
 	private UdpClient _listener;
 
 	private byte _idCounter = 0;
+	private List<ServerClient> _joiningClients = new List<ServerClient>();
+	private List<ServerClient> _clients = new List<ServerClient>();
 
-	private void Awake()
+	private void Start()
 	{
-		_listener = new UdpClient(PORT);
+		_listener = new UdpClient(_port);
+		//_listener.Client.SendTimeout = 1000;
 
-		int randomPort = Random.Range(1, 100);
-		_receiver = new UdpClient(PORT + randomPort);
-		_sender = new UdpClient(PORT + randomPort + 1);
+		Debug.Log($"Created UDP Listening Socket at Port {_port}");
+
+		int randomPort = _port + Random.Range(1,50);
+		_receiver = new UdpClient(randomPort);
+		_sender = new UdpClient(randomPort + 1);
+		Debug.Log($"Created UDP Receiver Socket at {randomPort}");
+		Debug.Log($"Created UDP Sender Socket at {randomPort + 1}");
 
 		Debug.Log("Server is ready");
 		ListenForNewClients();
@@ -33,38 +40,42 @@ public class ServerNetworkManager : NetworkManager
 
 	private async void ListenForNewClients()
 	{
+		Debug.Log("Listening for new clients...");
 		var packet = await _listener.ReceiveAsync();
 		ListenForNewClients();
 
+		Debug.Log($"New client has connected from {packet.RemoteEndPoint}");
 		var baseDatagram = new Datagram(packet.Buffer);
 		var rawData = baseDatagram.GetData();
 
 		switch (baseDatagram.GetDatagramType())
 		{
 			case DatagramType.ConnectionRequest:
-				ProcessNewClient(new Datagrams.ConnectionRequestDatagram(rawData));
+				ProcessNewClient(baseDatagram,new Datagrams.ConnectionRequestDatagram(rawData));
 				break;
 		}
 	}
 
-	private void ProcessNewClient(Datagrams.ConnectionRequestDatagram data)
+	private void ProcessNewClient(Datagram datagram, Datagrams.ConnectionRequestDatagram data)
 	{
 		_idCounter++;
 
-		var newClient = new ServerClient(_idCounter, data.PlayerName, data.Receiver);
-
 		Debug.Log($"Received Player: {data.PlayerName}");
+		var newClient = new ServerClient(_idCounter, data.PlayerName, data.PlayerColor, data.Receiver);
+		_joiningClients.Add(newClient);
 
 		SendDataAsync(
 			_listener, 
 			DatagramType.ConnectionRequestResponse,
 			new Datagrams.ConnectionRequestResponseDatagram
 			{
+				RequestPacketGUID = datagram.GetPacketID,
 				ReceiverPort = ((IPEndPoint)_receiver.Client.LocalEndPoint).Port,
 				SenderPort = ((IPEndPoint)_sender.Client.LocalEndPoint).Port,
 			},
 			_idCounter,
-			newClient.GetRemoteEndPoint
+			newClient.GetRemoteEndPoint,
+			true
 		);
 	}
 

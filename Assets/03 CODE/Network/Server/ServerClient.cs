@@ -10,8 +10,8 @@ public class ServerClient : NetworkClient
 
 	public IPEndPoint GetRemoteEndPoint => _remoteEndPoint;
 
-	public ServerClient(byte id, string name, IPEndPoint remoteEndPoint)
-		:base(id, name)
+	public ServerClient(byte id, string name,string color, IPEndPoint remoteEndPoint)
+		:base(id, name, color)
 	{
 		_remoteEndPoint = remoteEndPoint;
 	}

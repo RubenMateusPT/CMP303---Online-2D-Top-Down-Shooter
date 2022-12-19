@@ -1,10 +1,15 @@
+using System;
 using System.IO;
 using Unity.VisualScripting;
+using UnityEngine;
 
 namespace OnlineShooter.Network.Shared.Datagrams
 {
 	public class Datagram
 	{
+		private Guid _id;
+		private DateTime _timeStamp;
+
 		private bool _isError;
 
 		private byte _clientID;
@@ -16,6 +21,9 @@ namespace OnlineShooter.Network.Shared.Datagrams
 
 		public Datagram(DatagramType type, IDatagram data, byte cliendID = 0, bool isError = false)
 		{
+			_id = Guid.NewGuid();
+			_timeStamp = DateTime.Now;
+
 			_isError = isError;
 
 			_clientID = cliendID;
@@ -40,6 +48,8 @@ namespace OnlineShooter.Network.Shared.Datagrams
 		{
 			var reader = new BinaryReader(new MemoryStream(bytes));
 
+			_id = Guid.Parse(reader.ReadString());
+			_timeStamp = DateTime.Parse(reader.ReadString());
 			_isError = reader.ReadBoolean();
 			_clientID = reader.ReadByte();
 			_type = (DatagramType)reader.ReadByte();
@@ -47,6 +57,7 @@ namespace OnlineShooter.Network.Shared.Datagrams
 			_data = reader.ReadBytes(_dataSize);
 		}
 
+		public Guid GetPacketID => _id;
 		public bool IsError => _isError;
 		public byte GetClientID => _clientID;
 		public DatagramType GetDatagramType() => _type;
@@ -57,6 +68,8 @@ namespace OnlineShooter.Network.Shared.Datagrams
 			var stream = new MemoryStream();
 			var writer = new BinaryWriter(stream);
 
+			writer.Write(_id.ToString());
+			writer.Write(_timeStamp.ToString());
 			writer.Write(_isError);
 			writer.Write(_clientID);
 			writer.Write((byte)_type);

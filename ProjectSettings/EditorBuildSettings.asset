@@ -9,6 +9,6 @@ EditorBuildSettings:
     path: Assets/04 GAME/SCENES/TESTING/Server Test Scene.unity
     guid: bc35c3eb664d7b24fabf4e20e7b0cc1b
   - enabled: 0
-    path: Assets/04 GAME/SCENES/TESTING/Client Test Scene.unity
-    guid: f4a369c6cade25341a0f98e1fe9a4e78
+    path: Assets/04 GAME/SCENES/Client/Main Menu.unity
+    guid: 827ac163b4e298945a8c79f4a8a83bee
   m_configObjects: {}
