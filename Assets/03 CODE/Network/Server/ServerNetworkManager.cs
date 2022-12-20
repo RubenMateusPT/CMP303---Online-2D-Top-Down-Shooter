@@ -24,6 +24,7 @@ public class ServerNetworkManager : NetworkManager
 
 	private Dictionary<byte, bool> _groupResponse = new Dictionary<byte, bool>();
 	private Tuple<ServerClient, Guid> _candidate;
+	private bool _IsAcceptingClient;
 
 	private float _aliveTimer = 0;
 	private int _statusCounter = 0;
@@ -35,7 +36,8 @@ public class ServerNetworkManager : NetworkManager
 
 		Debug.Log($"Created UDP Listening Socket at Port {_port}");
 
-		int randomPort = _port + Random.Range(1, 50);
+		//int randomPort = _port + Random.Range(1, 50);
+		int randomPort = _port + 1;
 		_receiver = new UdpClient(randomPort);
 		_sender = new UdpClient(randomPort + 1);
 		Debug.Log($"Created UDP Receiver Socket at {randomPort}");
@@ -43,7 +45,7 @@ public class ServerNetworkManager : NetworkManager
 
 		Debug.Log("Server is ready");
 		_isConnected = true;
-		ListenForNewClients();
+		_IsAcceptingClient = false;
 		ListenForDataAsync();
 	}
 
@@ -140,8 +142,10 @@ public class ServerNetworkManager : NetworkManager
 
 	private async void ListenForNewClients()
 	{
-		if (!_isConnected)
+		if (!_isConnected || _IsAcceptingClient)
 			return;
+
+		_IsAcceptingClient = true;
 
 		_statusCounter = 0;
 		Debug.Log("Listening for new clients...");
@@ -184,7 +188,7 @@ public class ServerNetworkManager : NetworkManager
 				data.Receiver);
 
 			_idCounter--;
-			ListenForNewClients();
+			_IsAcceptingClient = false;
 			return;
 		}
 
@@ -203,7 +207,7 @@ public class ServerNetworkManager : NetworkManager
 				data.Receiver);
 
 			_idCounter--;
-			ListenForNewClients();
+			_IsAcceptingClient = false;
 			return;
 		}
 
@@ -224,7 +228,7 @@ public class ServerNetworkManager : NetworkManager
 				{
 					_joiningClients.Remove(_idCounter);
 					_idCounter--;
-					ListenForNewClients();
+					_IsAcceptingClient = false;
 				}
 			},
 			_idCounter,
@@ -306,7 +310,7 @@ public class ServerNetworkManager : NetworkManager
 				{
 					_joiningClients.Remove(_idCounter);
 					_idCounter--;
-					ListenForNewClients();
+					_IsAcceptingClient = false;
 				}
 			},
 			_joiningClients[baseDatagram.GetClientID].GetRemoteEndPoint,
@@ -350,7 +354,7 @@ public class ServerNetworkManager : NetworkManager
 								_idCounter--;
 							}
 							_candidate = null;
-							ListenForNewClients();
+							_IsAcceptingClient = false;
 						}
 					},
 					serverClient.GetRemoteEndPoint,
@@ -406,7 +410,7 @@ public class ServerNetworkManager : NetworkManager
 		);
 
 		_candidate = null;
-		ListenForNewClients();
+		_IsAcceptingClient = false;
 	}
 
 	private void UpdatePlayerMovement(Datagram baseDatagram, Datagrams.PlayerMovement playerMovement)

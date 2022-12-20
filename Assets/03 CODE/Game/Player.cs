@@ -15,6 +15,8 @@ public class Player : MonoBehaviour
 	public ServerNetworkManager ServerNetworkManager;
 	public Rigidbody2D Rigidbody;
 
+	public float speed = 250;
+
 	[Header("CHange this ones")]
 	public GameObject Aimer;
 
@@ -22,8 +24,13 @@ public class Player : MonoBehaviour
 
 	public float syncMovementTimer = 0;
 
+
 	private void Awake()
 	{
+#if UNITY_EDITOR
+		speed *= 2;
+#endif
+
 		var networkManager = GameObject.FindObjectOfType<NetworkManager>();
 		if (networkManager is ClientNetworkManager)
 		{
@@ -69,7 +76,7 @@ public class Player : MonoBehaviour
 	private void Move()
 	{
 		var dir = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-		Rigidbody.velocity = dir * 500 * Time.deltaTime;
+		Rigidbody.velocity = dir * speed * Time.deltaTime;
 	}
 
 	private void Aim()

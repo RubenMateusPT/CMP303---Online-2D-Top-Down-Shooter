@@ -47,7 +47,7 @@ public class MainMenuUI : MonoBehaviour
 	private void OnEnable()
 	{
 		playerUsernameInputField.onValueChanged.AddListener(OnUsernameChange);
-		_networkManager.NetworkStatus += UpdatePopupText;
+		
 	}
 
 	private void OnDisable()
@@ -62,8 +62,12 @@ public class MainMenuUI : MonoBehaviour
 		
 		ChangeColor(0);
 		animateText = false;
+	}
 
+	private void Start()
+	{
 		_networkManager = NetworkManager.GetInstance<ClientNetworkManager>();
+		_networkManager.NetworkStatus += UpdatePopupText;
 	}
 
 	void OnUsernameChange(string username)

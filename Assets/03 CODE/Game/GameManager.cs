@@ -34,6 +34,8 @@ public class GameManager : MonoBehaviour
 
 		networkPlayer.PlayerGO = newPlayer.GetComponent<Player>();
 		networkPlayer.PlayerGO.IsControlsEnabled = isLocalPlayer;
+		if(!isLocalPlayer)
+			Destroy(networkPlayer.PlayerGO.Rigidbody);
 		networkPlayer.PlayerGO.ID = networkPlayer.GetId;
 
 		players.Add(newPlayer.GetComponent<Player>());
@@ -41,8 +43,11 @@ public class GameManager : MonoBehaviour
 
 	public void DeletePlayer(NetworkClient networkPlayer)
 	{
+		if (networkPlayer == null || networkPlayer.PlayerGO == null)
+			return;
 		if (!players.Contains(networkPlayer.PlayerGO))
 			return;
+
 		players.Remove(networkPlayer.PlayerGO);
 		Destroy(networkPlayer.PlayerGO.gameObject);
 	}
