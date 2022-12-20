@@ -1,12 +1,13 @@
+using OnlineShooter.Network.Shared.Datagrams;
+using OnlineShooter.Network.Shared.Errors;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using OnlineShooter.Network.Shared.Datagrams;
-using OnlineShooter.Network.Shared.Errors;
 using Unity.VisualScripting;
 using UnityEngine;
+using static OnlineShooter.Network.Shared.Datagrams.Datagrams;
 using Random = UnityEngine.Random;
 
 public class ServerNetworkManager : NetworkManager
@@ -25,6 +26,7 @@ public class ServerNetworkManager : NetworkManager
 	private Tuple<ServerClient, Guid> _candidate;
 
 	private float _aliveTimer = 0;
+	private int _statusCounter = 0;
 
 	private void Start()
 	{
@@ -33,45 +35,72 @@ public class ServerNetworkManager : NetworkManager
 
 		Debug.Log($"Created UDP Listening Socket at Port {_port}");
 
-		int randomPort = _port + Random.Range(1,50);
+		int randomPort = _port + Random.Range(1, 50);
 		_receiver = new UdpClient(randomPort);
 		_sender = new UdpClient(randomPort + 1);
 		Debug.Log($"Created UDP Receiver Socket at {randomPort}");
 		Debug.Log($"Created UDP Sender Socket at {randomPort + 1}");
 
 		Debug.Log("Server is ready");
+		_isConnected = true;
 		ListenForNewClients();
 		ListenForDataAsync();
 	}
 
 	private void Update()
 	{
+		ListenForNewClients();
+
 		_packetManager.Update(Time.deltaTime);
 
-		CheckIfAlive();
+		if (_clients.Count <= 0)
+			return;
 
-		_aliveTimer += Time.deltaTime;
+		CheckIfAlive();
 	}
 
 	private void CheckIfAlive()
 	{
+		if (!_isConnected)
+		{
+			return;
+		}
+
+		_aliveTimer += Time.deltaTime;
+
 		if (_aliveTimer >= 5)//Every 5 seconds
 		{
 			_aliveTimer = 0;
 
 			while (_disconnectedClients.Count > 0)
 			{
+				byte toRemoveId = _disconnectedClients.Dequeue();
+
+				if (!_clients.ContainsKey(toRemoveId))
+					continue;
+
 				ServerClient clientToRemove;
-				_clients.Remove(_disconnectedClients.Dequeue(), out clientToRemove);
-				
+				_clients.Remove(toRemoveId, out clientToRemove);
+
+				if (_clients.Count <= 0 && _candidate != null)
+				{
+					_statusCounter = 4;
+					AcceptCandidate();
+				}
+
 				foreach (var serverClient in _clients.Values)
 				{
+					if (!_clients.ContainsKey(serverClient.GetId))
+						continue;
+
 					SendDataAsync(
 						DatagramType.RemoveClient,
-						new Datagrams.EmptyDatagram
+						new Datagrams.RemoveClientDatagram
 						{
 							OnFailAction = () =>
 							{
+								if (!_clients.ContainsKey(serverClient.GetId))
+									return;
 								_disconnectedClients.Enqueue(serverClient.GetId);
 							}
 						},
@@ -80,16 +109,25 @@ public class ServerNetworkManager : NetworkManager
 						true
 					);
 				}
+
 			}
 
 			foreach (var serverClient in _clients.Values)
 			{
+				if (serverClient.IsCheckingIfAlive)
+					return;
+
+				serverClient.IsCheckingIfAlive = true;
+
+				Debug.LogWarning($"Checking if {serverClient.GetName} is alive");
 				SendDataAsync(
 					DatagramType.AreYouAlive,
-					new Datagrams.EmptyDatagram
+					new Datagrams.AreYouAliveDatagram()
 					{
 						OnFailAction = () =>
 						{
+							if (!_clients.ContainsKey(serverClient.GetId))
+								return;
 							_disconnectedClients.Enqueue(serverClient.GetId);
 						}
 					},
@@ -102,6 +140,10 @@ public class ServerNetworkManager : NetworkManager
 
 	private async void ListenForNewClients()
 	{
+		if (!_isConnected)
+			return;
+
+		_statusCounter = 0;
 		Debug.Log("Listening for new clients...");
 		var packet = await _listener.ReceiveAsync();
 
@@ -112,13 +154,16 @@ public class ServerNetworkManager : NetworkManager
 		switch (baseDatagram.GetDatagramType())
 		{
 			case DatagramType.ConnectionRequest:
-				ProcessNewClient(baseDatagram,new Datagrams.ConnectionRequestDatagram(rawData));
+				ProcessNewClient(baseDatagram, new Datagrams.ConnectionRequestDatagram(rawData));
 				break;
 		}
 	}
 
 	private void ProcessNewClient(Datagram datagram, Datagrams.ConnectionRequestDatagram data)
 	{
+		if (_statusCounter != 0)
+			return;
+		_statusCounter = 1;
 		Debug.Log("Received new join request");
 		_idCounter++;
 
@@ -168,7 +213,7 @@ public class ServerNetworkManager : NetworkManager
 
 		Debug.Log("Sending join confirmation");
 		SendDataAsync(
-			_listener, 
+			_listener,
 			DatagramType.ConnectionRequestResponse,
 			new Datagrams.ConnectionRequestResponseDatagram
 			{
@@ -181,7 +226,7 @@ public class ServerNetworkManager : NetworkManager
 					_idCounter--;
 					ListenForNewClients();
 				}
-	},
+			},
 			_idCounter,
 			newClient.GetRemoteEndPoint,
 			true
@@ -204,14 +249,49 @@ public class ServerNetworkManager : NetworkManager
 				GroupAsAcceptedPlayer(baseDatagram, new Datagrams.NewPlayerGroupResponse(rawData));
 				break;
 
+			case DatagramType.AreYouAlive:
+				SendDataAsync(
+					DatagramType.AreYouAliveResponse,
+					new AcknowledgeDatagram
+					{
+						RequestPacketGUID = baseDatagram.GetPacketID
+					},
+					_clients[baseDatagram.GetClientID].GetRemoteEndPoint,
+					true
+					);
+				break;
+
+			case DatagramType.AreYouAliveResponse:
+				_packetManager.ReceivedPacket(new Datagrams.AcknowledgeDatagram(rawData).RequestPacketGUID);
+				if (!_clients.ContainsKey(baseDatagram.GetClientID)) return;
+				_clients[baseDatagram.GetClientID].IsCheckingIfAlive = false;
+				break;
+
+			case DatagramType.DisconnectRequest:
+				_disconnectedClients.Enqueue(baseDatagram.GetClientID);
+				SendDataAsync(
+					DatagramType.DisconnectRequestResponse,
+					new AcknowledgeDatagram
+					{
+						RequestPacketGUID = baseDatagram.GetPacketID
+					},
+					_clients[baseDatagram.GetClientID].GetRemoteEndPoint,
+					true
+				);
+				break;
+
 			case DatagramType.PlayerMovement:
 				UpdatePlayerMovement(baseDatagram, new Datagrams.PlayerMovement(rawData));
 				break;
+
 		}
 	}
 
 	private void SendCurrentGameData(Datagram baseDatagram, Datagrams.RequestGameDataDatagram data)
 	{
+		if (_statusCounter != 1)
+			return;
+		_statusCounter = 2;
 		Debug.Log("Received request for current game data");
 		_packetManager.ReceivedPacket(data.RequestPacketGUID);
 
@@ -236,6 +316,9 @@ public class ServerNetworkManager : NetworkManager
 
 	private void AddNewPlayer(Datagram baseDatagram, Datagrams.NewPlayerJoin data)
 	{
+		if (_statusCounter != 2)
+			return;
+		_statusCounter = 3;
 		Debug.Log("Received player confirmation to load game");
 		_packetManager.ReceivedPacket(data.RequestPacketGUID);
 
@@ -254,7 +337,7 @@ public class ServerNetworkManager : NetworkManager
 			_groupResponse.Clear();
 			foreach (var serverClient in _clients.Values)
 			{
-				_groupResponse.Add(serverClient.GetId,false);
+				_groupResponse.Add(serverClient.GetId, false);
 				SendDataAsync(
 					DatagramType.NewPlayerGroupRequest,
 					new Datagrams.NewPlayerGroupRequest
@@ -277,12 +360,16 @@ public class ServerNetworkManager : NetworkManager
 		}
 		else
 		{
-			AddPayerToGame(baseDatagram);
+			_statusCounter = 4;
+			AcceptCandidate();
 		}
 	}
 
 	private void GroupAsAcceptedPlayer(Datagram baseDatagram, Datagrams.NewPlayerGroupResponse data)
 	{
+		if (_statusCounter != 3)
+			return;
+		_statusCounter = 4;
 		Debug.Log($"Received group confirmation to accept player from {_clients[baseDatagram.GetClientID].GetName}");
 		_packetManager.ReceivedPacket(data.RequestPacketGUID);
 
@@ -297,11 +384,15 @@ public class ServerNetworkManager : NetworkManager
 		if (_candidate == null)
 			return;
 
-		AddPayerToGame(baseDatagram);
+		AcceptCandidate();
 	}
 
-	private void AddPayerToGame(Datagram baseDatagram)
+	private void AcceptCandidate()
 	{
+		if (_statusCounter != 4)
+			return;
+		_statusCounter = 5;
+
 		_clients.Add(_candidate.Item1.GetId, _candidate.Item1);
 		Debug.Log("Sent confirmation to load game");
 		SendDataAsync(
@@ -328,5 +419,25 @@ public class ServerNetworkManager : NetworkManager
 				serverClient.GetRemoteEndPoint
 				);
 		}
+	}
+
+	private void OnApplicationQuit()
+	{
+		_isConnected = false;
+
+		foreach (var serverClient in _clients.Values)
+		{
+			SendDataAsync(
+				DatagramType.DisconnectRequest,
+				new Datagrams.EmptyDatagram()
+				{
+				},
+				serverClient.GetRemoteEndPoint
+			);
+		}
+
+		_listener.Close();
+		_receiver.Close();
+		_sender.Close();
 	}
 }

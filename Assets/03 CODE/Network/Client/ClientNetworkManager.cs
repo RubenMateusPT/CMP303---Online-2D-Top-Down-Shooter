@@ -35,24 +35,61 @@ public class ClientNetworkManager : NetworkManager
 
 	//FLAGS
 	private bool _confirmedByServer = false;
-	private float _serverTimeout = 0;
+	private float _checkServerTimer = 0;
+	private bool _isCheckingServer = false;
+	private int _statusCounter = 0;
+	private bool _isDisconneting = false;
+	private bool _finishedDisconnecting = false;
 
 	private void Start()
 	{
-		_receiver = new UdpClient();
-		_sender = new UdpClient();
-		ListenForDataAsync();
+		_statusCounter = 0;
 	}
 
 	private void Update()
 	{
 		_packetManager.Update(Time.deltaTime);
 
-		_serverTimeout += Time.deltaTime;
+		if (_statusCounter != 5)
+			return;
 
-		if (_serverTimeout > 10) //After 10 seconds assume we lost connection to server
+		CheckIfAlive();
+	}
+
+	private void CheckIfAlive()
+	{
+		if (_isCheckingServer)
 		{
-			SceneManager.LoadScene("Main Menu");
+			return;
+		}
+
+		_checkServerTimer += Time.deltaTime;
+
+		if (_checkServerTimer > 5)
+		{
+
+			_checkServerTimer = 0;
+			_isCheckingServer = true;
+			
+			SendDataAsync(
+				DatagramType.AreYouAlive,
+				new Datagrams.AreYouAliveDatagram()
+				{
+					OnFailAction = () =>
+					{
+						if (!_isConnected)
+							return;
+
+						Debug.LogWarning("Disconnected From Server");
+
+						if (_statusCounter <= 0)
+							return;
+						Disconnect();
+					}
+				},
+				_locaClient.GetId,
+				true
+			);
 		}
 	}
 
@@ -92,28 +129,54 @@ public class ClientNetworkManager : NetworkManager
 				break;
 
 			case DatagramType.AreYouAlive:
-				_serverTimeout = 0;
-				SendDataAsync(DatagramType.Acknowledge,
+				SendDataAsync(
+					DatagramType.AreYouAliveResponse,
 					new AcknowledgeDatagram
 					{
 						RequestPacketGUID = baseDatagram.GetPacketID
-					});
+					},
+					_locaClient.GetId,
+					true);
+				break;
+
+			case DatagramType.AreYouAliveResponse:
+				_packetManager.ReceivedPacket(new AcknowledgeDatagram(rawData).RequestPacketGUID);
+				_isCheckingServer = false;
 				break;
 
 			case DatagramType.RemoveClient:
 				RemoveClient(baseDatagram.GetPacketID, baseDatagram.GetClientID);
 				break;
 
+			case DatagramType.DisconnectRequest:
+				Disconnect();
+				break;
+
+			case DatagramType.DisconnectRequestResponse:
+				_packetManager.ReceivedPacket(new AcknowledgeDatagram(rawData).RequestPacketGUID);
+				SendDataAsync(
+					DatagramType.Acknowledge, 
+					new AcknowledgeDatagram
+				{
+					RequestPacketGUID = baseDatagram.GetPacketID
+				},
+					_locaClient.GetId);
+				_finishedDisconnecting = true;
+				break;
+
 			case DatagramType.PlayerMovement:
 				UpdatePlayerMovement(baseDatagram, new PlayerMovement(rawData));
 				break;
+
 		}
 	}
 
-
-
 	private void ConnectToServer()
 	{
+		if (_statusCounter != 0)
+			return;
+		_statusCounter = 1;
+		
 		_receiver.Connect(_hostname, _port);
 		_sender.Connect(_hostname, _port);
 
@@ -134,6 +197,7 @@ public class ClientNetworkManager : NetworkManager
 				OnFailAction = () =>
 				{
 					NetworkStatus.Invoke(NetworkStatusCode.NoResponseFromServer);
+					_isConnected = false;
 				}
 			},
 			true
@@ -142,6 +206,9 @@ public class ClientNetworkManager : NetworkManager
 
 	private void ProcessConnectionRequestResponse(Datagram baseDatagram, Datagrams.ConnectionRequestResponseDatagram data)
 	{
+		if (_statusCounter != 1)
+			return;
+		_statusCounter = 2;
 		Debug.Log("Received OK to join from Server");
 		_packetManager.ReceivedPacket(data.RequestPacketGUID);
 
@@ -162,7 +229,11 @@ public class ClientNetworkManager : NetworkManager
 			new Datagrams.RequestGameDataDatagram
 			{
 				RequestPacketGUID = baseDatagram.GetPacketID,
-				OnFailAction = () => NetworkStatus.Invoke(NetworkStatusCode.FailedToGetGameData)
+				OnFailAction = () =>
+				{
+					NetworkStatus.Invoke(NetworkStatusCode.FailedToGetGameData);
+					_isConnected = false;
+				}
 			},
 			_locaClient.GetId,
 			true
@@ -171,6 +242,9 @@ public class ClientNetworkManager : NetworkManager
 
 	private void ProcessGameData(Datagram baseDatagram, Datagrams.GameDataDatagram gameDataDatagram)
 	{
+		if (_statusCounter != 2)
+			return;
+		_statusCounter = 3;
 		Debug.Log("Received Game Data from Server");
 		_packetManager.ReceivedPacket(gameDataDatagram.RequestPacketGUID);
 
@@ -192,7 +266,11 @@ public class ClientNetworkManager : NetworkManager
 			new Datagrams.NewPlayerJoin
 			{
 				RequestPacketGUID = baseDatagram.GetPacketID,
-				OnFailAction = () => {NetworkStatus.Invoke(NetworkStatusCode.PlayerConfirmationFailed);}
+				OnFailAction = () =>
+				{
+					NetworkStatus.Invoke(NetworkStatusCode.PlayerConfirmationFailed);
+					_isConnected = false;
+				}
 			},
 			_locaClient.GetId,
 			true
@@ -201,6 +279,8 @@ public class ClientNetworkManager : NetworkManager
 
 	private void ProcessNewPlayer(Datagram baseDatagram, Datagrams.NewPlayerGroupRequest gameDataDatagram)
 	{
+		if (_statusCounter != 5)
+			return;
 		Debug.Log($"Received player {gameDataDatagram.Client.Name}");
 
 		var newClient = SerializableNetworkClient.ConvertToOriginal(gameDataDatagram.Client);
@@ -223,6 +303,9 @@ public class ClientNetworkManager : NetworkManager
 
 	private void FinishPlayerSetup(Datagram baseDatagram, Datagrams.NewPlayerJoinResponse gameDataDatagram)
 	{
+		if (_statusCounter != 3)
+			return;
+		_statusCounter = 4;
 		Debug.Log("Received OK from to server to load game");
 		_packetManager.ReceivedPacket(gameDataDatagram.RequestPacketGUID);
 
@@ -249,6 +332,8 @@ public class ClientNetworkManager : NetworkManager
 
 		while (!_confirmedByServer)
 			yield return new WaitForEndOfFrame();
+
+		_statusCounter = 5;
 
 		_gameManager = GameObject.FindObjectOfType<GameManager>();
 
@@ -279,14 +364,25 @@ public class ClientNetworkManager : NetworkManager
 
 	public void ConnectToServer(string hostname, int port)
 	{
+		_statusCounter = 0;
 		_hostname = hostname;
 		_port = port;
-		
+
+		_finishedDisconnecting = false;
+		_isConnected = true;
+		_receiver = new UdpClient();
+		_sender = new UdpClient();
+		_confirmedByServer = false;
+		_clients = null;
+		_isDisconneting = false;
+
+		ListenForDataAsync();
 		ConnectToServer();
 	}
 
 	public void SendPlayerMovement(Vector2 pos, float angle)
 	{
+		return;
 		SendDataAsync(
 			DatagramType.PlayerMovement,
 			new PlayerMovement
@@ -306,4 +402,67 @@ public class ClientNetworkManager : NetworkManager
 		_clients[baseDatagram.GetClientID].PlayerGO.UpdatePosition(rawData.Pos, rawData.Angle);
 	}
 
+	public void Disconnect(bool tellServer = false)
+	{
+		if(_isDisconneting)
+			return;
+
+		_isDisconneting = true;
+		StartCoroutine(CloseConnection());
+
+		if (_sender != null)
+		{
+			Debug.Log("Disconnecting from server...");
+			if (tellServer)
+			{
+				SendDataAsync(DatagramType.DisconnectRequest,
+					new DisconnectRequest
+					{
+						OnFailAction = () =>
+						{
+							_finishedDisconnecting = true;
+						}
+					},
+					_locaClient.GetId,
+					true
+				);
+				return;
+			}
+		}
+
+		_finishedDisconnecting = true;
+	}
+
+	private void OnApplicationQuit()
+	{
+		Disconnect(true);
+	}
+
+	private IEnumerator CloseConnection()
+	{
+		while (!_finishedDisconnecting)
+		{
+			yield return new WaitForEndOfFrame();
+		}
+
+		_packetManager.ClearAllPackets();
+
+		_isConnected = false;
+
+		if (_sender != null)
+		{
+			_receiver.Close();
+			_sender.Close();
+		}
+
+		_isCheckingServer = false;
+		_statusCounter = 0;
+
+		while (_packetManager.IsWorking)
+		{
+			yield return new WaitForEndOfFrame();
+		}
+
+		SceneManager.LoadScene("Main Menu");
+	}
 }

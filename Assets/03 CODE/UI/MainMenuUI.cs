@@ -44,18 +44,26 @@ public class MainMenuUI : MonoBehaviour
 
 	private bool animateText;
 
+	private void OnEnable()
+	{
+		playerUsernameInputField.onValueChanged.AddListener(OnUsernameChange);
+		_networkManager.NetworkStatus += UpdatePopupText;
+	}
+
+	private void OnDisable()
+	{
+		playerUsernameInputField.onValueChanged.RemoveListener(OnUsernameChange);
+		_networkManager.NetworkStatus -= UpdatePopupText;
+	}
+
 	private void Awake()
 	{
 		_loadingPopup.SetActive(false);
-		playerUsernameInputField.onValueChanged.AddListener(OnUsernameChange);
+		
 		ChangeColor(0);
 		animateText = false;
-	}
 
-	private void Start()
-	{
 		_networkManager = NetworkManager.GetInstance<ClientNetworkManager>();
-		_networkManager.NetworkStatus += UpdatePopupText;
 	}
 
 	void OnUsernameChange(string username)

@@ -10,9 +10,16 @@ public class GameManager : MonoBehaviour
 {
 	private List<Player> players = new List<Player>();
 
+	public GameObject PopUp;
+
 	public Transform PlayersParentGroup;
 	public GameObject PlayerPrefab;
 	public Transform[] PlayersSpawns;
+
+	private void Awake()
+	{
+		PopUp.SetActive(false);
+	}
 
 	public void CreatePlayer(NetworkClient networkPlayer, bool isLocalPlayer)
 	{
@@ -34,7 +41,14 @@ public class GameManager : MonoBehaviour
 
 	public void DeletePlayer(NetworkClient networkPlayer)
 	{
+		if (!players.Contains(networkPlayer.PlayerGO))
+			return;
 		players.Remove(networkPlayer.PlayerGO);
 		Destroy(networkPlayer.PlayerGO.gameObject);
+	}
+
+	public void ShowPopup()
+	{
+		PopUp.SetActive(true);
 	}
 }

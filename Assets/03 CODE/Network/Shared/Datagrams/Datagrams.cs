@@ -23,6 +23,16 @@ namespace OnlineShooter.Network.Shared.Datagrams
 
 		public struct ErrorDatagram : IDatagram
 		{
+			
+			public NetworkPacketManager.PacketSettings GetPacketSettings()
+			{
+				return new NetworkPacketManager.PacketSettings
+				{
+					MaxRetries = 3,
+					TimeToResend = 5
+				};
+			}
+
 			public Guid RequestPacketGUID;
 			public NetworkError Error;
 			public string ErrorMessage;
@@ -34,7 +44,10 @@ namespace OnlineShooter.Network.Shared.Datagrams
 				RequestPacketGUID = Guid.Parse(reader.ReadString());
 				Error = (NetworkError) reader.ReadByte();
 				ErrorMessage = reader.ReadString();
+
+				
 			}
+
 
 			public void OnFailedSent()
 			{
@@ -55,6 +68,16 @@ namespace OnlineShooter.Network.Shared.Datagrams
 
 		public struct EmptyDatagram : IDatagram
 		{
+			
+			public NetworkPacketManager.PacketSettings GetPacketSettings()
+			{
+				return new NetworkPacketManager.PacketSettings
+				{
+					MaxRetries = 0,
+					TimeToResend = 0
+				};
+			}
+
 			public Action OnFailAction;
 
 			public void OnFailedSent()
@@ -71,6 +94,16 @@ namespace OnlineShooter.Network.Shared.Datagrams
 
 		public struct AcknowledgeDatagram : IDatagram
 		{
+			
+			public NetworkPacketManager.PacketSettings GetPacketSettings()
+			{
+				return new NetworkPacketManager.PacketSettings
+				{
+					MaxRetries = 7,
+					TimeToResend = 2
+				};
+			}
+
 			public Guid RequestPacketGUID;
 
 			public AcknowledgeDatagram(byte[] bytes)
@@ -78,6 +111,7 @@ namespace OnlineShooter.Network.Shared.Datagrams
 				var reader = new BinaryReader(new MemoryStream(bytes));
 
 				RequestPacketGUID = Guid.Parse(reader.ReadString());
+				
 			}
 
 			public void OnFailedSent()
@@ -97,6 +131,16 @@ namespace OnlineShooter.Network.Shared.Datagrams
 
 		public struct ConnectionRequestDatagram : IDatagram
 		{
+			
+			public NetworkPacketManager.PacketSettings GetPacketSettings()
+			{
+				return new NetworkPacketManager.PacketSettings
+				{
+					MaxRetries = 5,
+					TimeToResend = 5
+				};
+			}
+
 			public Action OnFailAction;
 
 			public string PlayerName;
@@ -113,6 +157,7 @@ namespace OnlineShooter.Network.Shared.Datagrams
 				Receiver = ParseEndPoint(reader.ReadString());
 
 				OnFailAction = null;
+				
 			}
 
 			public void OnFailedSent()
@@ -135,6 +180,16 @@ namespace OnlineShooter.Network.Shared.Datagrams
 
 		public struct ConnectionRequestResponseDatagram : IDatagram
 		{
+			
+			public NetworkPacketManager.PacketSettings GetPacketSettings()
+			{
+				return new NetworkPacketManager.PacketSettings
+				{
+					MaxRetries = 5,
+					TimeToResend = 5
+				};
+			}
+
 			public Action OnFailAction;
 			public Guid RequestPacketGUID;
 			public int ReceiverPort;
@@ -149,6 +204,7 @@ namespace OnlineShooter.Network.Shared.Datagrams
 				SenderPort = reader.ReadInt32();
 
 				OnFailAction = null;
+				
 			}
 
 			public void OnFailedSent()
@@ -171,6 +227,16 @@ namespace OnlineShooter.Network.Shared.Datagrams
 
 		public struct RequestGameDataDatagram : IDatagram
 		{
+			
+			public NetworkPacketManager.PacketSettings GetPacketSettings()
+			{
+				return new NetworkPacketManager.PacketSettings
+				{
+					MaxRetries = 5,
+					TimeToResend = 5
+				};
+			}
+
 			public Action OnFailAction;
 			public Guid RequestPacketGUID;
 			public RequestGameDataDatagram(byte[] bytes)
@@ -179,6 +245,8 @@ namespace OnlineShooter.Network.Shared.Datagrams
 
 				RequestPacketGUID = Guid.Parse(reader.ReadString());
 				OnFailAction = null;
+
+				
 			}
 
 			public void OnFailedSent()
@@ -201,6 +269,16 @@ namespace OnlineShooter.Network.Shared.Datagrams
 		[Serializable]
 		public struct GameDataDatagram : IDatagram
 		{
+			
+			public NetworkPacketManager.PacketSettings GetPacketSettings()
+			{
+				return new NetworkPacketManager.PacketSettings
+				{
+					MaxRetries = 5,
+					TimeToResend = 5
+				};
+			}
+
 			[NonSerialized]public Action OnFailAction;
 			public Guid RequestPacketGUID;
 
@@ -216,6 +294,7 @@ namespace OnlineShooter.Network.Shared.Datagrams
 				Players = temp.Players;
 
 				OnFailAction = null;
+				
 			}
 
 			public void OnFailedSent()
@@ -234,6 +313,16 @@ namespace OnlineShooter.Network.Shared.Datagrams
 
 		public struct NewPlayerJoin : IDatagram
 		{
+			
+			public NetworkPacketManager.PacketSettings GetPacketSettings()
+			{
+				return new NetworkPacketManager.PacketSettings
+				{
+					MaxRetries = 5,
+					TimeToResend = 7
+				};
+			}
+
 			public Action OnFailAction;
 			public Guid RequestPacketGUID;
 			public NewPlayerJoin(byte[] bytes)
@@ -242,6 +331,8 @@ namespace OnlineShooter.Network.Shared.Datagrams
 
 				RequestPacketGUID = Guid.Parse(reader.ReadString());
 				OnFailAction = null;
+
+				
 			}
 
 			public void OnFailedSent()
@@ -263,12 +354,24 @@ namespace OnlineShooter.Network.Shared.Datagrams
 
 		public struct NewPlayerJoinResponse : IDatagram
 		{
+			
+			public NetworkPacketManager.PacketSettings GetPacketSettings()
+			{
+				return new NetworkPacketManager.PacketSettings
+				{
+					MaxRetries = 5,
+					TimeToResend = 5
+				};
+			}
+
 			public Guid RequestPacketGUID;
 			public NewPlayerJoinResponse(byte[] bytes)
 			{
 				var reader = new BinaryReader(new MemoryStream(bytes));
 
 				RequestPacketGUID = Guid.Parse(reader.ReadString());
+
+				
 			}
 
 			public void OnFailedSent()
@@ -288,6 +391,16 @@ namespace OnlineShooter.Network.Shared.Datagrams
 
 		public struct NewPlayerGroupRequest : IDatagram
 		{
+			
+			public NetworkPacketManager.PacketSettings GetPacketSettings()
+			{
+				return new NetworkPacketManager.PacketSettings
+				{
+					MaxRetries = 5,
+					TimeToResend = 5
+				};
+			}
+
 			public Action OnFailAction;
 			public SerializableNetworkClient Client;
 
@@ -302,6 +415,8 @@ namespace OnlineShooter.Network.Shared.Datagrams
 					Name = reader.ReadString(),
 					Color = reader.ReadString()
 				};
+
+				
 			}
 
 			public void OnFailedSent()
@@ -324,12 +439,23 @@ namespace OnlineShooter.Network.Shared.Datagrams
 
 		public struct NewPlayerGroupResponse : IDatagram
 		{
+			public NetworkPacketManager.PacketSettings GetPacketSettings()
+			{
+				return new NetworkPacketManager.PacketSettings
+				{
+					MaxRetries = 3,
+					TimeToResend = 5
+				};
+			}
+
 			public Guid RequestPacketGUID;
 			public NewPlayerGroupResponse(byte[] bytes)
 			{
 				var reader = new BinaryReader(new MemoryStream(bytes));
 
 				RequestPacketGUID = Guid.Parse(reader.ReadString());
+
+				
 			}
 
 			public void OnFailedSent()
@@ -347,8 +473,90 @@ namespace OnlineShooter.Network.Shared.Datagrams
 			}
 		}
 
+		public struct RemoveClientDatagram : IDatagram
+		{
+			public Action OnFailAction;
+			public NetworkPacketManager.PacketSettings GetPacketSettings()
+			{
+				return new NetworkPacketManager.PacketSettings
+				{
+					MaxRetries = 5,
+					TimeToResend = 3
+				};
+			}
+
+			public void OnFailedSent()
+			{
+				if (OnFailAction == null) return;
+				OnFailAction.Invoke();
+			}
+
+			public byte[] ToArray()
+			{
+				return new byte[0];
+			}
+		}
+
+		public struct AreYouAliveDatagram : IDatagram
+		{
+			public Action OnFailAction;
+			public NetworkPacketManager.PacketSettings GetPacketSettings()
+			{
+				return new NetworkPacketManager.PacketSettings
+				{
+					MaxRetries = 3,
+					TimeToResend = 2
+				};
+			}
+
+			public void OnFailedSent()
+			{
+				if (OnFailAction == null) return;
+				OnFailAction.Invoke();
+			}
+
+			public byte[] ToArray()
+			{
+				return new byte[0];
+			}
+		}
+
+		public struct DisconnectRequest : IDatagram
+		{
+			public Action OnFailAction;
+			public NetworkPacketManager.PacketSettings GetPacketSettings()
+			{
+				return new NetworkPacketManager.PacketSettings
+				{
+					MaxRetries = 3,
+					TimeToResend = 2
+				};
+			}
+
+			public void OnFailedSent()
+			{
+				if (OnFailAction == null) return;
+				OnFailAction.Invoke();
+			}
+
+			public byte[] ToArray()
+			{
+				return new byte[0];
+			}
+		}
+
+
 		public struct PlayerMovement : IDatagram
 		{
+			public NetworkPacketManager.PacketSettings GetPacketSettings()
+			{
+				return new NetworkPacketManager.PacketSettings
+				{
+					MaxRetries = 0,
+					TimeToResend = 0
+				};
+			}
+
 			public Vector2 Pos;
 			public float Angle;
 

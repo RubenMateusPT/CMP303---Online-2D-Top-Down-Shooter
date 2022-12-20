@@ -13,7 +13,10 @@ namespace OnlineShooter.Network.Shared.Datagrams
 		NewPlayerGroupRequest,
 		NewPlayerGroupResponse,
 		AreYouAlive,
+		AreYouAliveResponse,
 		RemoveClient,
+		DisconnectRequest,
+		DisconnectRequestResponse,
 		PlayerMovement
 	}
 }

@@ -18,6 +18,7 @@ public class NetworkManager : MonoBehaviour
 	protected string _hostname = "127.0.0.1";
 
 	protected UdpClient _receiver, _sender;
+	protected bool _isConnected;
 
 	public static T GetInstance<T>()
 	{
@@ -38,12 +39,26 @@ public class NetworkManager : MonoBehaviour
 		DontDestroyOnLoad(gameObject);
 
 		_packetManager = new NetworkPacketManager();
+		_isConnected = false;
 	}
 
 	protected async void ListenForDataAsync()
 	{
+		if(!_isConnected || _receiver.Client == null)
+			return;
+
 		Debug.Log("Listening for data...");
-		var packet = await _receiver.ReceiveAsync();
+		UdpReceiveResult packet;
+
+		try
+		{
+			packet = await _receiver.ReceiveAsync();
+		}
+		catch (ObjectDisposedException ex)
+		{
+			return;
+		}
+
 		ListenForDataAsync();
 
 		var baseDatagram = new Datagram(packet.Buffer);
@@ -93,6 +108,21 @@ public class NetworkManager : MonoBehaviour
 				break;
 
 			case DatagramType.AreYouAlive:
+				ServerData(baseDatagram,rawData);
+				ClientData(baseDatagram, rawData);
+				break;
+
+			case DatagramType.AreYouAliveResponse:
+				ServerData(baseDatagram, rawData);
+				ClientData(baseDatagram, rawData);
+				break;
+
+			case DatagramType.DisconnectRequest:
+				ServerData(baseDatagram,rawData);
+				ClientData(baseDatagram,rawData);
+				break;
+
+			case DatagramType.DisconnectRequestResponse:
 				ClientData(baseDatagram, rawData);
 				break;
 
@@ -124,6 +154,7 @@ public class NetworkManager : MonoBehaviour
 			},
 			needsConfimation
 			);
+
 	}
 
 	protected void SendDataAsync(

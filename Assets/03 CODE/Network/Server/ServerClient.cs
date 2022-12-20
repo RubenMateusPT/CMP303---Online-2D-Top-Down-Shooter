@@ -10,6 +10,8 @@ public class ServerClient : NetworkClient
 
 	public IPEndPoint GetRemoteEndPoint => _remoteEndPoint;
 
+	public bool IsCheckingIfAlive = false;
+
 	public ServerClient(byte id, string name,string color, IPEndPoint remoteEndPoint)
 		:base(id, name, color)
 	{

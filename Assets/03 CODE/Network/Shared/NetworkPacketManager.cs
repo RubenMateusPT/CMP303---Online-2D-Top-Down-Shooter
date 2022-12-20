@@ -10,12 +10,9 @@ using UnityEngine;
 
 public class NetworkPacketManager
 {
-	private const byte MAX_SEND_RETRIES = 5;
-	private const float TIME_TO_RESEND_PACKET = 5; //In Seconds
-
-	private float _timer = 0;
-
 	private List<SpecialPacket> _packetsNeedingConfirmation = new List<SpecialPacket>();
+
+	public bool IsWorking => _packetsNeedingConfirmation.Count > 0;
 
 	private async Task SendPacketAsync(Packet packet, bool isImportant = true)
 	{
@@ -23,13 +20,24 @@ public class NetworkPacketManager
 		Debug.Log($"Sent {importantText} packet: {packet.Data.GetPacketID}");
 		var datagram = packet.Data.ToArray();
 
-		if (packet.Destination == null)
+		if (packet.Socket.Client == null)
+			return;
+
+		try
 		{
-			await packet.Socket.SendAsync(datagram, datagram.Length);
+
+			if (packet.Destination == null)
+			{
+				await packet.Socket.SendAsync(datagram, datagram.Length);
+			}
+			else
+			{
+				await packet.Socket.SendAsync(datagram, datagram.Length, packet.Destination);
+			}
 		}
-		else
+		catch (ObjectDisposedException ex)
+
 		{
-			await packet.Socket.SendAsync(datagram, datagram.Length, packet.Destination);
 		}
 	}
 
@@ -38,11 +46,18 @@ public class NetworkPacketManager
 		if (specialPacket.Status.IsSending)
 			return;
 
-		if (specialPacket.Status.Retries >= MAX_SEND_RETRIES)
+		if (specialPacket.Status.Retries <= 0)
 		{
 			Debug.Log($"Failed to send packet: {specialPacket.Packet.Data.GetPacketID}");
 			specialPacket.Packet.Data.GetDatagram().OnFailedSent();
 			specialPacket.Status.IsResponded = true;
+			return;
+		}
+
+		if (specialPacket.Status.Retries >= specialPacket.Status.MaxRetries)
+		{
+			specialPacket.Status.Retries = 0;
+			specialPacket.Status.TimeToTimeout *= 2;
 			return;
 		}
 
@@ -54,42 +69,39 @@ public class NetworkPacketManager
 		specialPacket.Status.Retries++;
 	}
 
-	private void ResendPackets()
-	{
-		_packetsNeedingConfirmation.RemoveAll(p => p.Status.IsResponded);
-
-		foreach (var specialPacket in _packetsNeedingConfirmation)
-		{
-			SendPacketAsync(specialPacket);
-		}
-	}
-
 	public void Update(float dt)
 	{
 		if(_packetsNeedingConfirmation.Count <= 0) return;
 
-		if (_timer > TIME_TO_RESEND_PACKET)
-		{
-			_timer = 0;
+		_packetsNeedingConfirmation.RemoveAll(p => p.Status.IsResponded);
 
-			ResendPackets();
+		foreach (var packetToResend in _packetsNeedingConfirmation.Where(p => p.Status.Timer > p.Status.TimeToTimeout))
+		{
+			packetToResend.Status.Timer = 0;
+			SendPacketAsync(packetToResend);
 		}
 
-		_timer += dt;
+		_packetsNeedingConfirmation.ForEach(p => p.Status.UpdateTimer(dt));
 	}
 
 	public void SendPacket(Packet packet, bool needsConfirmation)
 	{
 		if (needsConfirmation)
 		{
+			var ps= packet.Data.GetDatagram().GetPacketSettings();
 			var specialPacket = new SpecialPacket
 			{
 				Packet = packet,
 				Status = new PacketStatus
 				{
+					MaxRetries = ps.MaxRetries,
+					Retries = 1,
+
+					TimeToTimeout = ps.TimeToResend,
+					Timer = 0,
+
 					IsResponded = false,
-					IsSending = false,
-					Retries = 0,
+					IsSending = false
 				}
 			};
 
@@ -113,6 +125,23 @@ public class NetworkPacketManager
 		packet.Status.IsResponded = true;
 	}
 
+	public void ClearAllPackets()
+	{
+		foreach (var specialPacket in _packetsNeedingConfirmation)
+		{
+			specialPacket.Status.IsResponded = true;
+		}
+	}
+
+	public void CancelPacket(byte _clientId)
+	{
+		var sp = _packetsNeedingConfirmation.FirstOrDefault(p => p.Packet.Data.GetClientID == _clientId);
+		if (sp != null)
+		{
+			sp.Status.IsResponded = true;
+		}
+	}
+
 	public struct Packet
 	{
 		public UdpClient Socket;
@@ -122,14 +151,30 @@ public class NetworkPacketManager
 
 	private struct PacketStatus
 	{
+		public float MaxRetries;
+		public byte Retries;
+
+		public float TimeToTimeout;
+		public float Timer;
+
 		public bool IsResponded;
 		public bool IsSending;
-		public byte Retries;
+
+		public void UpdateTimer(float dt)
+		{
+			Timer += dt;
+		}
 	}
 
 	private class SpecialPacket
 	{
 		public Packet Packet;
 		public PacketStatus Status;
+	}
+
+	public struct PacketSettings
+	{
+		public float MaxRetries;
+		public float TimeToResend;
 	}
 }

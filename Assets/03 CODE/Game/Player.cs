@@ -40,8 +40,16 @@ public class Player : MonoBehaviour
 		if (!IsControlsEnabled)
 			return;
 
+		if (Input.GetKeyUp(KeyCode.Escape))
+		{
+			IsControlsEnabled = false;
+			GameObject.FindObjectOfType<GameManager>().ShowPopup();
+			ClientNetworkManager.Disconnect(true);
+		}
+
 		Move();
 		Aim();
+
 	}
 
 	private void LateUpdate()
