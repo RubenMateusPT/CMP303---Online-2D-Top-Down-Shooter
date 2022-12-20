@@ -559,6 +559,8 @@ namespace OnlineShooter.Network.Shared.Datagrams
 
 			public Vector2 Pos;
 			public float Angle;
+			public int PlayerGameTick;
+			public int PlayerTicks;
 
 			public PlayerMovement(byte[] bytes)
 			{
@@ -566,6 +568,8 @@ namespace OnlineShooter.Network.Shared.Datagrams
 
 				Pos = new Vector2(reader.ReadSingle(), reader.ReadSingle());
 				Angle = reader.ReadSingle();
+				PlayerGameTick = reader.ReadInt32();
+				PlayerTicks = reader.ReadInt32();
 			}
 
 			public void OnFailedSent()
@@ -580,6 +584,8 @@ namespace OnlineShooter.Network.Shared.Datagrams
 				writer.Write(Pos.x);
 				writer.Write(Pos.y);
 				writer.Write(Angle);
+				writer.Write(PlayerGameTick);
+				writer.Write(PlayerTicks);
 
 				return stream.ToArray();
 			}

@@ -36,8 +36,7 @@ public class ServerNetworkManager : NetworkManager
 
 		Debug.Log($"Created UDP Listening Socket at Port {_port}");
 
-		//int randomPort = _port + Random.Range(1, 50);
-		int randomPort = _port + 1;
+		int randomPort = _port + Random.Range(1, 50);
 		_receiver = new UdpClient(randomPort);
 		_sender = new UdpClient(randomPort + 1);
 		Debug.Log($"Created UDP Receiver Socket at {randomPort}");

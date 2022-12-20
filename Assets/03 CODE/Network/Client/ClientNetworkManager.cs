@@ -40,6 +40,7 @@ public class ClientNetworkManager : NetworkManager
 	private int _statusCounter = 0;
 	private bool _isDisconneting = false;
 	private bool _finishedDisconnecting = false;
+	private bool _firstServerTickUpdate = true;
 
 	private void Start()
 	{
@@ -306,8 +307,18 @@ public class ClientNetworkManager : NetworkManager
 		if (_statusCounter != 3)
 			return;
 		_statusCounter = 4;
+
 		Debug.Log("Received OK from to server to load game");
 		_packetManager.ReceivedPacket(gameDataDatagram.RequestPacketGUID);
+
+		if (_firstServerTickUpdate)
+		{
+			_firstServerTickUpdate = true;
+			var currentTime = DateTime.Now;
+			float timeDiff = (float)baseDatagram.GetTimeStamp.Subtract(currentTime).TotalSeconds;
+			float tickOffset = timeDiff / 0.1f;
+			Ticks = baseDatagram.Ticks + (int)tickOffset;
+		}
 
 		if (_confirmedByServer)
 			return;
@@ -375,19 +386,22 @@ public class ClientNetworkManager : NetworkManager
 		_confirmedByServer = false;
 		_clients = null;
 		_isDisconneting = false;
+		_firstServerTickUpdate = true;
 
 		ListenForDataAsync();
 		ConnectToServer();
 	}
 
-	public void SendPlayerMovement(Vector2 pos, float angle)
+	public void SendPlayerMovement(Vector2 pos, float angle, int ticks)
 	{
 		SendDataAsync(
 			DatagramType.PlayerMovement,
 			new PlayerMovement
 			{
 				Pos =  pos,
-				Angle = angle
+				Angle = angle,
+				PlayerGameTick = Ticks,
+				PlayerTicks = ticks
 			},
 			_locaClient.GetId
 			);
@@ -395,10 +409,19 @@ public class ClientNetworkManager : NetworkManager
 
 	private void UpdatePlayerMovement(Datagram baseDatagram, PlayerMovement rawData)
 	{
-		if(baseDatagram.GetClientID == _locaClient.GetId)
+		if (!_clients.ContainsKey(baseDatagram.GetClientID))
 			return;
 
-		_clients[baseDatagram.GetClientID].PlayerGO.UpdatePosition(rawData.Pos, rawData.Angle);
+		if (baseDatagram.GetClientID == _locaClient.GetId)
+			return;
+
+		if (_clients[baseDatagram.GetClientID] == null)
+			return;
+
+		if (_clients[baseDatagram.GetClientID].PlayerGO == null)
+			return;
+
+		_clients[baseDatagram.GetClientID].PlayerGO.UpdatePosition(baseDatagram,rawData);
 	}
 
 	public void Disconnect(bool tellServer = false)

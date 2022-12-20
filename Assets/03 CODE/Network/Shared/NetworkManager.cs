@@ -20,9 +20,17 @@ public class NetworkManager : MonoBehaviour
 	protected UdpClient _receiver, _sender;
 	protected bool _isConnected;
 
+	private int _ticks = 0;
+
 	public static T GetInstance<T>()
 	{
 		return (T)(object)_instance;
+	}
+
+	public int Ticks
+	{
+		get;
+		set;
 	}
 
 	private void Awake()
@@ -40,6 +48,17 @@ public class NetworkManager : MonoBehaviour
 
 		_packetManager = new NetworkPacketManager();
 		_isConnected = false;
+
+		StartCoroutine(CountTick());
+	}
+
+	private IEnumerator CountTick()
+	{
+		while (true)
+		{
+			yield return new WaitForSeconds(0.1f);
+			Ticks++;
+		}
 	}
 
 	protected async void ListenForDataAsync()
@@ -150,7 +169,7 @@ public class NetworkManager : MonoBehaviour
 			{
 				Socket = udpClient,
 				Destination = remoteEndPoint,
-				Data = new Datagram(datagramType, data, clientID, datagramType == DatagramType.Error),
+				Data = new Datagram(_ticks, datagramType, data, clientID, datagramType == DatagramType.Error),
 			},
 			needsConfimation
 			);

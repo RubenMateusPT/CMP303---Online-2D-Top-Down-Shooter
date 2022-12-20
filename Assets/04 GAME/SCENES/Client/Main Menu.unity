@@ -2439,7 +2439,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 5000
+  m_text: 50000
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -3834,6 +3834,8 @@ MonoBehaviour:
   serverIPInputField: {fileID: 827724483}
   serverPortInputField: {fileID: 526185718}
   serverConnectButton: {fileID: 1611564045}
+  ipPlaceholder: {fileID: 1915918656}
+  portPlaceholder: {fileID: 1384123101}
   _loadingPopup: {fileID: 1443256332}
   _loadingText: {fileID: 434918145}
 --- !u!1001 &6794039634121976202

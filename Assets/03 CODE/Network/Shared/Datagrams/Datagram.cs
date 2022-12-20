@@ -9,6 +9,7 @@ namespace OnlineShooter.Network.Shared.Datagrams
 	{
 		private Guid _id;
 		private DateTime _timeStamp;
+		private int _ticks;
 
 		private bool _isError;
 
@@ -20,10 +21,11 @@ namespace OnlineShooter.Network.Shared.Datagrams
 		private byte[] _data;
 		private IDatagram _datagram;
 
-		public Datagram(DatagramType type, IDatagram data, byte cliendID = 0, bool isError = false)
+		public Datagram(int ticks, DatagramType type, IDatagram data, byte cliendID = 0, bool isError = false)
 		{
 			_id = Guid.NewGuid();
 			_timeStamp = DateTime.Now;
+			_ticks = ticks;
 
 			_isError = isError;
 
@@ -36,13 +38,13 @@ namespace OnlineShooter.Network.Shared.Datagrams
 			_datagram = data;
 		}
 
-		public Datagram(DatagramType type, IDatagram data, byte cliendID)
-		:this(type, data, cliendID, false)
+		public Datagram(int ticks, DatagramType type, IDatagram data, byte cliendID)
+		:this(ticks, type, data, cliendID, false)
 		{
 		}
 
-		public Datagram(DatagramType type, IDatagram data, bool isError)
-			: this(type, data, 0, isError)
+		public Datagram(int ticks, DatagramType type, IDatagram data, bool isError)
+			: this(ticks, type, data, 0, isError)
 		{
 		}
 
@@ -52,6 +54,7 @@ namespace OnlineShooter.Network.Shared.Datagrams
 
 			_id = Guid.Parse(reader.ReadString());
 			_timeStamp = DateTime.Parse(reader.ReadString());
+			_ticks = reader.ReadInt32();
 			_isError = reader.ReadBoolean();
 			_clientID = reader.ReadByte();
 			_type = (DatagramType)reader.ReadByte();
@@ -60,6 +63,8 @@ namespace OnlineShooter.Network.Shared.Datagrams
 		}
 
 		public Guid GetPacketID => _id;
+		public DateTime GetTimeStamp => _timeStamp;
+		public int Ticks => _ticks;
 		public bool IsError => _isError;
 		public byte GetClientID => _clientID;
 		public DatagramType GetDatagramType() => _type;
@@ -73,6 +78,7 @@ namespace OnlineShooter.Network.Shared.Datagrams
 
 			writer.Write(_id.ToString());
 			writer.Write(_timeStamp.ToString());
+			writer.Write(_ticks);
 			writer.Write(_isError);
 			writer.Write(_clientID);
 			writer.Write((byte)_type);
