@@ -47,7 +47,6 @@ public class MainMenuUI : MonoBehaviour
 	private void OnEnable()
 	{
 		playerUsernameInputField.onValueChanged.AddListener(OnUsernameChange);
-		
 	}
 
 	private void OnDisable()
@@ -114,11 +113,8 @@ public class MainMenuUI : MonoBehaviour
 		PlayerSettings.Instance.Username = playerUsernameText.text;
 		PlayerSettings.Instance.PlayerColor = colors[currentColor];
 
-		if (!string.IsNullOrEmpty(serverIPInputField.text))
-		{
-			hostname = serverIPInputField.text;
-			port = int.Parse(serverPortInputField.text);
-		}
+		hostname = string.IsNullOrEmpty(serverIPInputField.text) ? hostname : serverIPInputField.text;
+		port = string.IsNullOrEmpty(serverPortInputField.text) ? port : int.Parse(serverPortInputField.text);
 
 		serverConnectButton.gameObject.SetActive(false);
 		_loadingPopup.SetActive(true);
