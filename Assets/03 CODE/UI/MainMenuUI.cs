@@ -20,6 +20,8 @@ public class MainMenuUI : MonoBehaviour
 	[SerializeField] private TMP_InputField serverIPInputField;
 	[SerializeField] private TMP_InputField serverPortInputField;
 	[SerializeField] private Button serverConnectButton;
+	public TMP_Text ipPlaceholder;
+	public TMP_Text portPlaceholder;
 
 	[Header("Loading Pop Up")]
 	[SerializeField] private GameObject _loadingPopup;
@@ -113,8 +115,8 @@ public class MainMenuUI : MonoBehaviour
 		PlayerSettings.Instance.Username = playerUsernameText.text;
 		PlayerSettings.Instance.PlayerColor = colors[currentColor];
 
-		hostname = string.IsNullOrEmpty(serverIPInputField.text) ? hostname : serverIPInputField.text;
-		port = string.IsNullOrEmpty(serverPortInputField.text) ? port : int.Parse(serverPortInputField.text);
+		hostname = string.IsNullOrEmpty(serverIPInputField.text) ? ipPlaceholder.text : serverIPInputField.text;
+		port = string.IsNullOrEmpty(serverPortInputField.text) ? int.Parse(portPlaceholder.text) : int.Parse(serverPortInputField.text);
 
 		serverConnectButton.gameObject.SetActive(false);
 		_loadingPopup.SetActive(true);

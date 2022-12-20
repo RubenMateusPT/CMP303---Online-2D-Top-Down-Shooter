@@ -382,7 +382,6 @@ public class ClientNetworkManager : NetworkManager
 
 	public void SendPlayerMovement(Vector2 pos, float angle)
 	{
-		return;
 		SendDataAsync(
 			DatagramType.PlayerMovement,
 			new PlayerMovement
