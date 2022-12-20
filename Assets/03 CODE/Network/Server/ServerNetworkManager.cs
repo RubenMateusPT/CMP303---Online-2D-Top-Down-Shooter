@@ -13,7 +13,7 @@ using Random = UnityEngine.Random;
 public class ServerNetworkManager : NetworkManager
 {
 
-	private const int MAX_PLAYERS = 4;
+	private const int MAX_PLAYERS = 2;
 
 	private UdpClient _listener;
 
