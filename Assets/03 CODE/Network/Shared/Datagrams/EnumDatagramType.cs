@@ -3,8 +3,17 @@ namespace OnlineShooter.Network.Shared.Datagrams
 	public enum DatagramType
 	{
 		Acknowledge,
+		Error,
 		ConnectionRequest,
 		ConnectionRequestResponse,
-		ConnectionRequestConfirmation
+		GameDataRequest,
+		GameDataResponse,
+		NewPlayerJoin,
+		NewPlayerJoinResponse,
+		NewPlayerGroupRequest,
+		NewPlayerGroupResponse,
+		AreYouAlive,
+		RemoveClient,
+		PlayerMovement
 	}
 }

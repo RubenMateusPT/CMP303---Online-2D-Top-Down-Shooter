@@ -10,7 +10,7 @@ using UnityEngine;
 
 public class NetworkPacketManager
 {
-	private const byte MAX_SEND_RETRIES = 3;
+	private const byte MAX_SEND_RETRIES = 5;
 	private const float TIME_TO_RESEND_PACKET = 5; //In Seconds
 
 	private float _timer = 0;
@@ -41,6 +41,7 @@ public class NetworkPacketManager
 		if (specialPacket.Status.Retries >= MAX_SEND_RETRIES)
 		{
 			Debug.Log($"Failed to send packet: {specialPacket.Packet.Data.GetPacketID}");
+			specialPacket.Packet.Data.GetDatagram().OnFailedSent();
 			specialPacket.Status.IsResponded = true;
 			return;
 		}
@@ -104,12 +105,11 @@ public class NetworkPacketManager
 
 	public void ReceivedPacket(Guid packetId)
 	{
-		Debug.Log($"Received Confirmation of Packet: {packetId}");
-		var packet = _packetsNeedingConfirmation.FirstOrDefault(p => p.Packet.Data.GetPacketID == packetId);
-
-		if(packet == null)
+		if (!_packetsNeedingConfirmation.Exists(p => p.Packet.Data.GetPacketID == packetId))
 			return;
-		
+
+		var packet = _packetsNeedingConfirmation.FirstOrDefault(p => p.Packet.Data.GetPacketID == packetId);
+		Debug.Log($"Received Confirmation of Packet: {packetId}");
 		packet.Status.IsResponded = true;
 	}
 

@@ -18,6 +18,7 @@ namespace OnlineShooter.Network.Shared.Datagrams
 
 		private int _dataSize;
 		private byte[] _data;
+		private IDatagram _datagram;
 
 		public Datagram(DatagramType type, IDatagram data, byte cliendID = 0, bool isError = false)
 		{
@@ -32,6 +33,7 @@ namespace OnlineShooter.Network.Shared.Datagrams
 
 			_data = data.ToArray();
 			_dataSize = _data.Length;
+			_datagram = data;
 		}
 
 		public Datagram(DatagramType type, IDatagram data, byte cliendID)
@@ -62,6 +64,7 @@ namespace OnlineShooter.Network.Shared.Datagrams
 		public byte GetClientID => _clientID;
 		public DatagramType GetDatagramType() => _type;
 		public byte[] GetData() => _data;
+		public IDatagram GetDatagram() => _datagram;
 
 		public byte[] ToArray()
 		{

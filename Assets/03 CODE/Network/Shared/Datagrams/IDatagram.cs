@@ -5,7 +5,7 @@ namespace OnlineShooter.Network.Shared.Datagrams
 {
 	public interface IDatagram
 	{
-		public void OnFailedSent(Action e);
+		public void OnFailedSent();
 		public byte[] ToArray();
 	}
 }

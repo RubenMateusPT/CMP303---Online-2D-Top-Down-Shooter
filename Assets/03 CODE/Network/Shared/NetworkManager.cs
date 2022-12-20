@@ -40,11 +40,6 @@ public class NetworkManager : MonoBehaviour
 		_packetManager = new NetworkPacketManager();
 	}
 
-	private void Update()
-	{
-		_packetManager.Update(Time.deltaTime);
-	}
-
 	protected async void ListenForDataAsync()
 	{
 		Debug.Log("Listening for data...");
@@ -56,7 +51,9 @@ public class NetworkManager : MonoBehaviour
 
 		if (baseDatagram.IsError)
 		{
-			HandleError(baseDatagram.GetDatagramType(), new Datagrams.ErrorDatagram());
+			var error = new Datagrams.ErrorDatagram(rawData);
+			_packetManager.ReceivedPacket(error.RequestPacketGUID);
+			HandleError(error);
 			return;
 		}
 
@@ -67,12 +64,45 @@ public class NetworkManager : MonoBehaviour
 					new Datagrams.AcknowledgeDatagram(rawData).RequestPacketGUID);
 				break;
 
-			case DatagramType.ConnectionRequestConfirmation:
+			case DatagramType.ConnectionRequestResponse:
+				ClientData(baseDatagram, rawData);
+				break;
+
+			case DatagramType.GameDataRequest:
 				ServerData(baseDatagram, rawData);
 				break;
 
-			case DatagramType.ConnectionRequestResponse:
+			case DatagramType.GameDataResponse:
+				ClientData(baseDatagram,rawData);
+				break;
+
+			case DatagramType.NewPlayerJoin:
+				ServerData(baseDatagram, rawData);
+				break;
+
+			case DatagramType.NewPlayerJoinResponse:
 				ClientData(baseDatagram, rawData);
+				break;
+
+			case DatagramType.NewPlayerGroupRequest:
+				ClientData(baseDatagram, rawData);
+				break;
+
+			case DatagramType.NewPlayerGroupResponse:
+				ServerData(baseDatagram, rawData);
+				break;
+
+			case DatagramType.AreYouAlive:
+				ClientData(baseDatagram, rawData);
+				break;
+
+			case DatagramType.RemoveClient:
+				ClientData(baseDatagram, rawData);
+				break;
+
+			case DatagramType.PlayerMovement:
+				ServerData(baseDatagram,rawData);
+				ClientData(baseDatagram,rawData);
 				break;
 		}
 	}
@@ -90,7 +120,7 @@ public class NetworkManager : MonoBehaviour
 			{
 				Socket = udpClient,
 				Destination = remoteEndPoint,
-				Data = new Datagram(datagramType, data, clientID),
+				Data = new Datagram(datagramType, data, clientID, datagramType == DatagramType.Error),
 			},
 			needsConfimation
 			);
@@ -132,7 +162,7 @@ public class NetworkManager : MonoBehaviour
 		SendDataAsync(_sender,datagramType, data,0,null,needsConfimation);
 	}
 
-	protected virtual void HandleError(DatagramType datagramType, Datagrams.ErrorDatagram errorDatagram){}
+	protected virtual void HandleError(Datagrams.ErrorDatagram errorDatagram){}
 	protected virtual void ServerData(Datagram baseDatagram, byte[] rawData){}
 	protected virtual void ClientData(Datagram baseDatagram, byte[] rawData){}
 }
